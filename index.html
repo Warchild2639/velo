@@ -1,0 +1,347 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Velódromo</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: #1c1c1c;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            font-size: 30px;
+        }
+
+        .objetivo {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            background: #2b2b2b;
+            color: white;
+            outline: none;
+        }
+
+        .distancia {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .distancia .numero {
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .distancia .texto {
+            color: #aaa;
+        }
+
+        .botones {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 20px 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.1s, opacity 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.97);
+            opacity: 0.8;
+        }
+
+        .corto {
+            background: #2878d0;
+        }
+
+        .largo {
+            background: #d05a28;
+        }
+
+        .info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: #292929;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .card .titulo {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .card .valor {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .reset {
+            width: 100%;
+            margin-top: 20px;
+            background: #444;
+            padding: 14px;
+        }
+
+        .completado {
+            color: #4ade80;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+
+        @media (max-width: 450px) {
+            .container {
+                padding: 18px;
+            }
+
+            .distancia .numero {
+                font-size: 40px;
+            }
+
+            button {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🚴 Control de Velódromo</h1>
+
+    <div class="objetivo">
+        <label for="objetivo">Kilómetros que tengo que caminar:</label>
+        <input 
+            type="number" 
+            id="objetivo" 
+            placeholder="Ej: 12.5" 
+            step="0.1"
+            min="0"
+            oninput="actualizar()"
+        >
+    </div>
+
+    <div class="distancia">
+        <div class="numero" id="distanciaActual">0.0 km</div>
+        <div class="texto">recorridos</div>
+    </div>
+
+    <div class="botones">
+        <button class="corto" onclick="agregarVuelta(1.1)">
+            + 1.1 km<br>
+            <small>Circuito corto</small>
+        </button>
+
+        <button class="largo" onclick="agregarVuelta(2.6)">
+            + 2.6 km<br>
+            <small>Circuito largo</small>
+        </button>
+    </div>
+
+    <div class="info">
+
+        <div class="card">
+            <div class="titulo">Falta</div>
+            <div class="valor" id="faltante">—</div>
+        </div>
+
+        <div class="card">
+            <div class="titulo">Última vuelta</div>
+            <div class="valor" id="tiempoVuelta">—</div>
+        </div>
+
+        <div class="card">
+            <div class="titulo">Tiempo total</div>
+            <div class="valor" id="tiempoTotal">00:00:00</div>
+        </div>
+
+        <div class="card">
+            <div class="titulo">Velocidad promedio</div>
+            <div class="valor" id="velocidad">0.0 km/h</div>
+        </div>
+
+    </div>
+
+    <div class="completado" id="completado">
+        ¡Objetivo completado! 🎉
+    </div>
+
+    <button class="reset" onclick="reiniciar()">
+        Reiniciar
+    </button>
+
+</div>
+
+<script>
+
+    let distancia = 0;
+    let inicio = null;
+    let ultimaVuelta = null;
+    let intervalo = null;
+
+    function formatearTiempo(segundos) {
+        segundos = Math.floor(segundos);
+
+        const horas = Math.floor(segundos / 3600);
+        const minutos = Math.floor((segundos % 3600) / 60);
+        const secs = segundos % 60;
+
+        return (
+            String(horas).padStart(2, '0') + ':' +
+            String(minutos).padStart(2, '0') + ':' +
+            String(secs).padStart(2, '0')
+        );
+    }
+
+    function agregarVuelta(km) {
+
+        // Comenzar cronómetro con la primera vuelta
+        if (inicio === null) {
+            inicio = Date.now();
+            ultimaVuelta = inicio;
+
+            intervalo = setInterval(actualizarTiempo, 1000);
+        } else {
+
+            // Calcular tiempo desde la última vuelta
+            const ahora = Date.now();
+            const segundosVuelta = (ahora - ultimaVuelta) / 1000;
+
+            document.getElementById("tiempoVuelta").textContent =
+                formatearTiempo(segundosVuelta);
+
+            ultimaVuelta = ahora;
+        }
+
+        distancia += km;
+
+        actualizar();
+        actualizarTiempo();
+    }
+
+    function actualizar() {
+
+        const objetivo = parseFloat(
+            document.getElementById("objetivo").value
+        );
+
+        document.getElementById("distanciaActual").textContent =
+            distancia.toFixed(1) + " km";
+
+        if (!isNaN(objetivo) && objetivo > 0) {
+
+            const falta = Math.max(0, objetivo - distancia);
+
+            document.getElementById("faltante").textContent =
+                falta.toFixed(1) + " km";
+
+            if (falta <= 0) {
+                document.getElementById("completado").style.display = "block";
+            } else {
+                document.getElementById("completado").style.display = "none";
+            }
+
+        } else {
+            document.getElementById("faltante").textContent = "—";
+        }
+    }
+
+    function actualizarTiempo() {
+
+        if (inicio === null) return;
+
+        const ahora = Date.now();
+        const segundos = (ahora - inicio) / 1000;
+
+        document.getElementById("tiempoTotal").textContent =
+            formatearTiempo(segundos);
+
+        if (segundos > 0 && distancia > 0) {
+
+            const velocidad = distancia / (segundos / 3600);
+
+            document.getElementById("velocidad").textContent =
+                velocidad.toFixed(2) + " km/h";
+        }
+    }
+
+    function reiniciar() {
+
+        if (intervalo !== null) {
+            clearInterval(intervalo);
+        }
+
+        distancia = 0;
+        inicio = null;
+        ultimaVuelta = null;
+        intervalo = null;
+
+        document.getElementById("distanciaActual").textContent = "0.0 km";
+        document.getElementById("faltante").textContent = "—";
+        document.getElementById("tiempoVuelta").textContent = "—";
+        document.getElementById("tiempoTotal").textContent = "00:00:00";
+        document.getElementById("velocidad").textContent = "0.0 km/h";
+        document.getElementById("completado").style.display = "none";
+    }
+
+</script>
+
+</body>
+</html>
+```
