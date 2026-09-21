@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -77,6 +76,29 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
+        }
+
+        .control-principal {
+            width: 100%;
+            margin-bottom: 15px;
+            background: #16a34a;
+        }
+
+        .pausa {
+            width: 100%;
+            margin-top: 15px;
+            background: #ca8a04;
+        }
+
+        .finalizar {
+            width: 100%;
+            margin-top: 20px;
+            background: #dc2626;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
         }
 
         button {
@@ -182,6 +204,10 @@
         <div class="texto">recorridos</div>
     </div>
 
+    <button class="control-principal" id="btnInicio" onclick="iniciarEntrenamiento()">
+        ▶ Iniciar entrenamiento
+    </button>
+
     <div class="botones">
         <button class="corto" onclick="agregarVuelta(1.1)">
             + 1.1 km<br>
@@ -193,6 +219,10 @@
             <small>Circuito largo</small>
         </button>
     </div>
+
+    <button class="pausa" id="btnPausa" onclick="alternarPausa()" disabled>
+        ⏸ Pausar
+    </button>
 
     <div class="info">
 
@@ -222,6 +252,10 @@
         ¡Objetivo completado! 🎉
     </div>
 
+    <button class="finalizar" id="btnFinalizar" onclick="finalizarEntrenamiento()" disabled>
+        ■ Finalizar entrenamiento
+    </button>
+
     <button class="reset" onclick="reiniciar()">
         Reiniciar
     </button>
@@ -234,6 +268,11 @@
     let inicio = null;
     let ultimaVuelta = null;
     let intervalo = null;
+    let pausado = false;
+    let pausaInicio = null;
+    let tiempoPausadoTotal = 0;
+    let vueltas = [];
+    let finalizado = false;
 
     function formatearTiempo(segundos) {
         segundos = Math.floor(segundos);
@@ -249,30 +288,118 @@
         );
     }
 
-    function agregarVuelta(km) {
+    function iniciarEntrenamiento() {
+        if (inicio !== null && !finalizado) return;
 
-        // Comenzar cronómetro con la primera vuelta
-        if (inicio === null) {
-            inicio = Date.now();
-            ultimaVuelta = inicio;
+        distancia = 0;
+        vueltas = [];
+        pausado = false;
+        pausaInicio = null;
+        tiempoPausadoTotal = 0;
+        finalizado = false;
+        inicio = Date.now();
+        ultimaVuelta = inicio;
 
-            intervalo = setInterval(actualizarTiempo, 1000);
-        } else {
+        if (intervalo !== null) clearInterval(intervalo);
+        intervalo = setInterval(actualizarTiempo, 1000);
 
-            // Calcular tiempo desde la última vuelta
-            const ahora = Date.now();
-            const segundosVuelta = (ahora - ultimaVuelta) / 1000;
-
-            document.getElementById("tiempoVuelta").textContent =
-                formatearTiempo(segundosVuelta);
-
-            ultimaVuelta = ahora;
-        }
-
-        distancia += km;
-
+        document.getElementById("btnInicio").disabled = true;
+        document.getElementById("btnPausa").disabled = false;
+        document.getElementById("btnFinalizar").disabled = false;
         actualizar();
         actualizarTiempo();
+    }
+
+    function alternarPausa() {
+        if (inicio === null || finalizado) return;
+
+        const btn = document.getElementById("btnPausa");
+
+        if (!pausado) {
+            pausado = true;
+            pausaInicio = Date.now();
+            btn.textContent = "▶ Reanudar";
+        } else {
+            const ahora = Date.now();
+            const duracionPausa = ahora - pausaInicio;
+            tiempoPausadoTotal += duracionPausa;
+            ultimaVuelta += duracionPausa;
+            pausaInicio = null;
+            pausado = false;
+            btn.textContent = "⏸ Pausar";
+        }
+
+        actualizarTiempo();
+    }
+
+    function agregarVuelta(km) {
+        if (inicio === null || pausado || finalizado) return;
+
+        const ahora = Date.now();
+        const segundosVuelta = Math.max(0, (ahora - ultimaVuelta) / 1000);
+
+        document.getElementById("tiempoVuelta").textContent =
+            formatearTiempo(segundosVuelta);
+
+        distancia += km;
+        vueltas.push({
+            numero: vueltas.length + 1,
+            distanciaKm: km,
+            hora: new Date(ahora).toISOString(),
+            duracionSegundos: Math.round(segundosVuelta)
+        });
+
+        ultimaVuelta = ahora;
+        actualizar();
+        actualizarTiempo();
+    }
+
+    function finalizarEntrenamiento() {
+        if (inicio === null || finalizado) return;
+
+        const ahora = Date.now();
+        let pausadoExtra = 0;
+        if (pausado && pausaInicio !== null) {
+            pausadoExtra = ahora - pausaInicio;
+        }
+
+        const segundosActivos = Math.max(0, (ahora - inicio - tiempoPausadoTotal - pausadoExtra) / 1000);
+        const objetivo = parseFloat(document.getElementById("objetivo").value);
+        const entrenamiento = {
+            fechaInicio: new Date(inicio).toISOString(),
+            fechaFin: new Date(ahora).toISOString(),
+            objetivoKm: isNaN(objetivo) ? null : objetivo,
+            distanciaKm: Number(distancia.toFixed(2)),
+            tiempoActivoSegundos: Math.round(segundosActivos),
+            tiempoActivo: formatearTiempo(segundosActivos),
+            velocidadPromedioKmh: segundosActivos > 0 ? Number((distancia / (segundosActivos / 3600)).toFixed(2)) : 0,
+            vueltas: vueltas
+        };
+
+        const historial = JSON.parse(localStorage.getItem("historialEntrenamientos") || "[]");
+        historial.push(entrenamiento);
+        localStorage.setItem("historialEntrenamientos", JSON.stringify(historial));
+        localStorage.setItem("ultimoEntrenamiento", JSON.stringify(entrenamiento));
+
+        finalizado = true;
+        pausado = false;
+        if (intervalo !== null) {
+            clearInterval(intervalo);
+            intervalo = null;
+        pausado = false;
+        pausaInicio = null;
+        tiempoPausadoTotal = 0;
+        vueltas = [];
+        finalizado = false;
+        }
+
+        document.getElementById("btnPausa").disabled = true;
+        document.getElementById("btnFinalizar").disabled = true;
+        document.getElementById("btnInicio").disabled = false;
+        document.getElementById("btnPausa").textContent = "⏸ Pausar";
+        actualizarTiempo();
+
+        alert("Entrenamiento guardado en este dispositivo.");
     }
 
     function actualizar() {
@@ -307,7 +434,8 @@
         if (inicio === null) return;
 
         const ahora = Date.now();
-        const segundos = (ahora - inicio) / 1000;
+        const pausaActual = (pausado && pausaInicio !== null) ? (ahora - pausaInicio) : 0;
+        const segundos = Math.max(0, (ahora - inicio - tiempoPausadoTotal - pausaActual) / 1000);
 
         document.getElementById("tiempoTotal").textContent =
             formatearTiempo(segundos);
@@ -338,6 +466,10 @@
         document.getElementById("tiempoTotal").textContent = "00:00:00";
         document.getElementById("velocidad").textContent = "0.0 km/h";
         document.getElementById("completado").style.display = "none";
+        document.getElementById("btnInicio").disabled = false;
+        document.getElementById("btnPausa").disabled = true;
+        document.getElementById("btnFinalizar").disabled = true;
+        document.getElementById("btnPausa").textContent = "⏸ Pausar";
     }
 
 </script>
