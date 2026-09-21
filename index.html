@@ -386,11 +386,6 @@
         if (intervalo !== null) {
             clearInterval(intervalo);
             intervalo = null;
-        pausado = false;
-        pausaInicio = null;
-        tiempoPausadoTotal = 0;
-        vueltas = [];
-        finalizado = false;
         }
 
         document.getElementById("btnPausa").disabled = true;
@@ -459,6 +454,11 @@
         inicio = null;
         ultimaVuelta = null;
         intervalo = null;
+        pausado = false;
+        pausaInicio = null;
+        tiempoPausadoTotal = 0;
+        vueltas = [];
+        finalizado = false;
 
         document.getElementById("distanciaActual").textContent = "0.0 km";
         document.getElementById("faltante").textContent = "—";
