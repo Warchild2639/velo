@@ -150,6 +150,13 @@
             font-weight: bold;
         }
 
+        .compartir {
+            width: 100%;
+            margin-top: 12px;
+            background: #7c3aed;
+            padding: 14px;
+        }
+
         .reset {
             width: 100%;
             margin-top: 20px;
@@ -254,6 +261,10 @@
 
     <button class="finalizar" id="btnFinalizar" onclick="finalizarEntrenamiento()" disabled>
         ■ Finalizar entrenamiento
+    </button>
+
+    <button class="compartir" id="btnCompartir" onclick="compartirEntrenamiento()" disabled>
+        📤 Compartir entrenamiento
     </button>
 
     <button class="reset" onclick="reiniciar()">
@@ -392,9 +403,66 @@
         document.getElementById("btnFinalizar").disabled = true;
         document.getElementById("btnInicio").disabled = false;
         document.getElementById("btnPausa").textContent = "⏸ Pausar";
+        document.getElementById("btnCompartir").disabled = false;
         actualizarTiempo();
 
         alert("Entrenamiento guardado en este dispositivo.");
+    }
+
+    function crearTextoEntrenamiento(entrenamiento) {
+        const fecha = new Date(entrenamiento.fechaInicio).toLocaleDateString("es-AR");
+        const hora = new Date(entrenamiento.fechaInicio).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+        let texto = "ENTRENAMIENTO DE CAMINATA - " + fecha + " " + hora + "\n\n";
+        texto += "Objetivo: " + (entrenamiento.objetivoKm !== null ? entrenamiento.objetivoKm + " km" : "sin objetivo") + "\n";
+        texto += "Distancia total: " + entrenamiento.distanciaKm + " km\n";
+        texto += "Tiempo activo: " + entrenamiento.tiempoActivo + "\n";
+        texto += "Velocidad promedio: " + entrenamiento.velocidadPromedioKmh + " km/h\n\n";
+        texto += "VUELTAS:\n";
+
+        if (!entrenamiento.vueltas || entrenamiento.vueltas.length === 0) {
+            texto += "Sin vueltas registradas.\n";
+        } else {
+            entrenamiento.vueltas.forEach(vuelta => {
+                const velocidadVuelta = vuelta.duracionSegundos > 0
+                    ? (vuelta.distanciaKm / (vuelta.duracionSegundos / 3600)).toFixed(2)
+                    : "0.00";
+                texto += "Vuelta " + vuelta.numero + ": " + vuelta.distanciaKm + " km - " +
+                    formatearTiempo(vuelta.duracionSegundos) + " - " + velocidadVuelta + " km/h\n";
+            });
+        }
+
+        texto += "\nAnalizá este entrenamiento teniendo en cuenta mi preparación para la peregrinación a Luján. Compará el ritmo entre vueltas, mi velocidad promedio y el cumplimiento del objetivo.";
+        return texto;
+    }
+
+    async function compartirEntrenamiento() {
+        const guardado = localStorage.getItem("ultimoEntrenamiento");
+        if (!guardado) {
+            alert("Todavía no hay un entrenamiento finalizado para compartir.");
+            return;
+        }
+
+        const entrenamiento = JSON.parse(guardado);
+        const texto = crearTextoEntrenamiento(entrenamiento);
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: "Entrenamiento de caminata",
+                    text: texto
+                });
+                return;
+            } catch (error) {
+                if (error.name === "AbortError") return;
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(texto);
+            alert("Entrenamiento copiado. Abrí ChatGPT y pegalo en la conversación.");
+        } catch (error) {
+            prompt("Copiá estos datos y pegalos en ChatGPT:", texto);
+        }
     }
 
     function actualizar() {
@@ -470,7 +538,10 @@
         document.getElementById("btnPausa").disabled = true;
         document.getElementById("btnFinalizar").disabled = true;
         document.getElementById("btnPausa").textContent = "⏸ Pausar";
+        document.getElementById("btnCompartir").disabled = localStorage.getItem("ultimoEntrenamiento") === null;
     }
+
+    document.getElementById("btnCompartir").disabled = localStorage.getItem("ultimoEntrenamiento") === null;
 
 </script>
 
